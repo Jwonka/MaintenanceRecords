@@ -8,9 +8,6 @@ using System.ComponentModel;
 using System.Linq;
 using System.Windows.Forms;
 using System.Data.SqlClient;
-using System.Reflection;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-
 
 namespace MaintenanceRecords
 {
@@ -21,8 +18,8 @@ namespace MaintenanceRecords
             InitializeComponent();
         }
 
-        // Create a selectedRecordObject to reference which Record is selected 
-        private Records selectedRecordsObject = new Records();
+        // Create a selected Record to reference which record is selected
+        private Records selectedRecordsObject;
 
         // Create a BindingList of Records
         private BindingList<Records> recordsList = new BindingList<Records>();
@@ -132,7 +129,7 @@ namespace MaintenanceRecords
             }
             else if (decimal.TryParse(costTextBox.Text, out costDecimalCheck) == false)
             {
-                Msg("Cost must be a decimal value.");
+                Msg("Estimated Cost must be a decimal value.");
                 costTextBox.Focus();
                 return;
             }
@@ -143,7 +140,7 @@ namespace MaintenanceRecords
                 return;
             }
             // Check if Service is selected
-            else if (serviceCheckedListBox.SelectedIndex == -1)
+            else if (serviceCheckedListBox.CheckedItems.Count == 0)
             {
                 Msg("Service must be selected.");
                 this.serviceCheckedListBox.Focus();
@@ -188,7 +185,7 @@ namespace MaintenanceRecords
             recordsObject.Service = selectedServices;
             recordsObject.ServiceDate = serviceDateTime;
 
-            // Set object's to selectedRecordsObject for the binding list
+            // Set object's to the binding list
             selectedRecordsObject = recordsObject;
             recordsList.Add(recordsObject);
             recordsListBox.SelectedItem = recordsObject;
@@ -226,6 +223,9 @@ namespace MaintenanceRecords
         {
             // Clear the Listbox
             recordsListBox.ClearSelected();
+
+            // Clear the records
+            recordsList.Clear();
 
             // Open Database
             var connection = OpenDBConnection();
@@ -269,6 +269,8 @@ namespace MaintenanceRecords
             }
             connection.Close();
             connection.Dispose();
+            RefreshListBoxAndListView();
+            ClearLabels();
         }
 
         private void InsertRecords()
@@ -276,7 +278,7 @@ namespace MaintenanceRecords
             // Open Database
             var connection = OpenDBConnection();
 
-            // Create SQL String for each table
+            // Create SQL String 
             string recordSQL = "INSERT INTO Records_Tbl (FirstName, LastName, Email, PhoneNumber, RegistrationDate, Make, Model, Year, Color, Vin, LicensePlate, Odometer, Cost, Notes, Service, ServiceDate) VALUES (@FirstName, @LastName, @Email, @PhoneNumber, @RegistrationDate, @Make, @Model, @Year, @Color, @Vin, @LicensePlate, @Odometer, @Cost, @Notes, @Service, @ServiceDate)";
             //Msg(recordSQL.ToString());
 
@@ -305,15 +307,15 @@ namespace MaintenanceRecords
 
             if (intRowsAffected == 1)
             {
-                Msg(recordsList.Last().FirstName + " was inserted.");
+                Msg(recordsList.Last().FullName + " was created.");
             }
             else
             {
-                Msg("The insert failed.");
+                Msg("Record not inserted.");
             }
         }
 
-        private void ClearButton_Click(object sender, EventArgs e)
+        private void ClearLabels()
         {
             ownerIDTextBox.Text = string.Empty;
             firstNameTextBox.Text = string.Empty;
@@ -335,7 +337,8 @@ namespace MaintenanceRecords
             // Reset the label text to "Estimated Cost"
             costLabel.Text = "Estimated Cost:";
 
-            // Hide the Update button
+            // Hide the Delete and Update buttons
+            deleteButton.Visible = false;
             updateButton.Visible = false;
 
             // Clear all selections in the serviceCheckedListBox
@@ -343,6 +346,10 @@ namespace MaintenanceRecords
             {
                 serviceCheckedListBox.SetItemChecked(i, false);
             }
+        }
+        private void ClearButton_Click(object sender, EventArgs e)
+        {
+            ClearLabels();
         }
 
         // Method to set the selected services in the checked list box
@@ -361,13 +368,13 @@ namespace MaintenanceRecords
                     }
                 }
             }
-        }
+        } 
 
-        // Method to calculate the cost based on selected services
-        private decimal CalculateCost()
+    // Method to calculate the cost based on selected services
+    private decimal CalculateCost()
         {
             // Handle the case when no services are checked
-            if (selectedRecordsObject == null)
+            if (recordsObject == null)
             {
                 return 0.00m;
             }
@@ -399,82 +406,65 @@ namespace MaintenanceRecords
 
         private void recordListBox_SelectedIndexChanged(object sender, EventArgs e)
         {
-            ChangeSelectedRecord();
             SetSelectedServices();
+
             if (recordsListBox.SelectedItem != null)
             {
-                // Show the Update button
+                // Show the Delete and Update buttons
+                deleteButton.Visible = true;
                 updateButton.Visible = true;
+                recordsObject = (Records)recordsListBox.SelectedItem;
                 selectedRecordsObject = (Records)recordsListBox.SelectedItem;
                 DisplayRecords();
             }
             else
             {
-                selectedRecordsObject = null;
-                DisplayRecords();
-            }
-        }
-
-        private void ChangeSelectedRecord()
-        {
-            if (recordsListBox.SelectedItem is object)
-            {
-                selectedRecordsObject = (Records)recordsListBox.SelectedItem;
-                DisplayRecords();
-            }
-            else
-            {
-                selectedRecordsObject = null;
-
-                DisplayRecords();
+                recordsObject = null;
+                ClearLabels();
             }
         }
 
         private void DisplayRecords()
         {
-            // Populate Textboxes with the records
-            ownerIDTextBox.Text = selectedRecordsObject.OwnerID.ToString();
-            firstNameTextBox.Text = selectedRecordsObject.FirstName;
-            lastNameTextBox.Text = selectedRecordsObject.LastName;
-            emailTextBox.Text = selectedRecordsObject.Email;
-            phoneNumberTextBox.Text = selectedRecordsObject.PhoneNumber;
-            registrationDateTimePicker.Text = selectedRecordsObject.RegistrationDate.ToString();
-            makeTextBox.Text = selectedRecordsObject.Make;
-            modelTextBox.Text = selectedRecordsObject.Model;
-            yearTextBox.Text = selectedRecordsObject.Year.ToString();
-            colorTextBox.Text = selectedRecordsObject.Color;
-            vinTextBox.Text = selectedRecordsObject.Vin;
-            licensePlateTextBox.Text = selectedRecordsObject.LicensePlate;
-            odometerTextBox.Text = selectedRecordsObject.Odometer.ToString();
-            costTextBox.Text = selectedRecordsObject.Cost.ToString("C");
-            notesTextBox.Text = selectedRecordsObject.Notes;
-            serviceDateTimePicker.Text = selectedRecordsObject.ServiceDate.ToString();
-
-            // Set costLabel to "Total Cost 
-            costLabel.Text = "        Total Cost:";
-
-            // Clear all selections in the checked list box
-            for (int i = 0; i < serviceCheckedListBox.Items.Count; i++)
+            if (recordsListBox.SelectedIndex >= 0)
             {
-                serviceCheckedListBox.SetItemChecked(i, false);
-            }
 
-            if (selectedRecordsObject != null)
-            {
-                // Split the services into an array 
-                string[] selectedService = selectedRecordsObject.Service.Split(',');
+                // Populate Textboxes with the records
+                ownerIDTextBox.Text = selectedRecordsObject.OwnerID.ToString();
+                firstNameTextBox.Text = selectedRecordsObject.FirstName;
+                lastNameTextBox.Text = selectedRecordsObject.LastName;
+                emailTextBox.Text = selectedRecordsObject.Email;
+                phoneNumberTextBox.Text = selectedRecordsObject.PhoneNumber;
+                registrationDateTimePicker.Text = selectedRecordsObject.RegistrationDate.ToString();
+                makeTextBox.Text = selectedRecordsObject.Make;
+                modelTextBox.Text = selectedRecordsObject.Model;
+                yearTextBox.Text = selectedRecordsObject.Year.ToString();
+                colorTextBox.Text = selectedRecordsObject.Color;
+                vinTextBox.Text = selectedRecordsObject.Vin;
+                licensePlateTextBox.Text = selectedRecordsObject.LicensePlate;
+                odometerTextBox.Text = selectedRecordsObject.Odometer.ToString();
+                costTextBox.Text = selectedRecordsObject.Cost.ToString("C");
+                notesTextBox.Text = selectedRecordsObject.Notes;
+                serviceDateTimePicker.Text = selectedRecordsObject.ServiceDate.ToString();
 
-                // Iterate through the items in the checked list box
-                foreach (string services in selectedService)
+
+                // Set costLabel to "Total Cost 
+                costLabel.Text = "        Total Cost:";
+
+                // Clear all selections in the checked list box
+                for (int i = 0; i < serviceCheckedListBox.Items.Count; i++)
                 {
-                    // Check if the service at index is in the selectedServices array
-                    int index = serviceCheckedListBox.Items.IndexOf(services.Trim());
-                    if (index >= 0)
-                    {
-                        // Set the item as checked
-                        serviceCheckedListBox.SetItemChecked(index, true);
-                    }
+                    serviceCheckedListBox.SetItemChecked(i, false);
                 }
+                SetSelectedServices();
+                decimal totalCost = CalculateCost();
+                costTextBox.Text = totalCost.ToString("C");
+
+            }
+            else
+            {
+                ClearLabels();
+                Msg("No record available for display.");
             }
         }
 
@@ -490,18 +480,15 @@ namespace MaintenanceRecords
             // Populate the ListView with the loaded records
             PopulateListView();
 
-            // Initially hide the Update button
+            // Clear the labels
+            ClearLabels();
+
+            // Set cursor to insert record
+            firstNameTextBox.Focus();
+
+            // Hide the Delete and Update buttons
+            deleteButton.Visible = false;
             updateButton.Visible = false;
-        }
-
-        private void serviceCheckedListBox_SelectedIndexChanged(object sender, EventArgs e)
-        {
-        }
-
-        // Method to handle all MessageBox's
-        public void Msg(string msg)
-        {
-            MessageBox.Show(msg, "Maintenace Records", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
         }
 
         private void PopulateListView()
@@ -511,7 +498,6 @@ namespace MaintenanceRecords
             recordsListView.Columns.Clear();
 
             recordsListView.View = View.Details;
-
 
             // Define the column headers and their widths
             recordsListView.Columns.Add("Owner ID", 90);
@@ -527,7 +513,7 @@ namespace MaintenanceRecords
             recordsListView.Columns.Add("Vin Number", 140);
             recordsListView.Columns.Add("License Plate", 110);
             recordsListView.Columns.Add("Odometer", 100);
-            recordsListView.Columns.Add("Total Cost", 90);
+            recordsListView.Columns.Add("Total Cost", 120);
             recordsListView.Columns.Add("Notes", 250);
             recordsListView.Columns.Add("Service", 300);
             recordsListView.Columns.Add("Service Date", 150);
@@ -559,30 +545,101 @@ namespace MaintenanceRecords
             }
         }
 
+        private void RefreshListBoxAndListView()
+        {
+            // Refresh the ListBox by resetting its DataSource
+            recordsListBox.DataSource = null;
+            recordsListBox.DataSource = recordsList;
+            recordsListBox.DisplayMember = "FullName";
+
+            // Refresh the ListView by calling the PopulateListView method
+            PopulateListView();
+        }
+
+
+        private void deleteButton_Click(object sender, EventArgs e)
+        {
+            if (recordsObject != null)
+            {
+                // Open Database
+                using (var dbConnection = OpenDBConnection())
+                {
+                    // Create SQL String
+                    string deleteSQL = "Delete from Records_Tbl where OwnerID = '" + recordsObject.OwnerID + "'";
+                    //Msg(deleteSQL);
+
+                    // Create Command
+                    using (var deleteCommand = new SqlCommand(deleteSQL, dbConnection))
+                    {
+                        deleteCommand.Parameters.AddWithValue("@OwnerID", recordsObject.OwnerID);
+
+                        var intRowsAffected = deleteCommand.ExecuteNonQuery();
+                        if (intRowsAffected == 1)
+                        {
+                            MessageBox.Show(recordsObject.FullName + "'s Record was deleted.");
+                            ReloadRecords();
+                        }
+                        else
+                        {
+                            Msg(recordsObject.FullName + " was NOT deleted.");
+                            ReloadRecords();
+                        }
+                    }
+                }
+            }
+        }
+
         private void updateButton_Click(object sender, EventArgs e)
         {
-            // Check if a Owner is selected
-            if (selectedRecordsObject == null)
+            // Open database
+            var connection = OpenDBConnection();
+
+            // Declare a decimal in order to replace the $ in costTextBox
+            decimal costValue;
+
+            // A string to store the selected services
+            string selectedServices = string.Join(",", serviceCheckedListBox.CheckedItems.Cast<string>());
+
+            // A string to convert DateTime values in the expected format
+            string registrationDateStr = registrationDateTimePicker.Value.ToString("yyyy-MM-dd HH:mm:ss");
+            string serviceDateStr = serviceDateTimePicker.Value.ToString("yyyy-MM-dd HH:mm:ss");
+
+            if (decimal.TryParse(costTextBox.Text.Replace("$", ""), out costValue))
             {
-                Msg("Please select a Owner to update.");
-                return;
+                costValue = CalculateCost();
+                // Create SQL string
+                string updateSQL = "UPDATE Records_Tbl SET FirstName = '" + firstNameTextBox.Text + "', LastName = '" + lastNameTextBox.Text + "',Email = '" + emailTextBox.Text + "',PhoneNumber = '" + phoneNumberTextBox.Text + "',RegistrationDate = '" + registrationDateStr + "',Make = '" + makeTextBox.Text + "',Model = '" + modelTextBox.Text + "',Year = '" + yearTextBox.Text + "',Color = '" + colorTextBox.Text + "',Vin = '" + vinTextBox.Text + "',LicensePlate = '" + licensePlateTextBox.Text + "',Odometer = '" + odometerTextBox.Text + "',Cost = '" + costValue + "',Notes = '" + notesTextBox.Text + "',Service = '" + selectedServices + "',ServiceDate = '" + serviceDateStr + "' WHERE OwnerID = '" + ownerIDTextBox.Text + "'";
+                //Msg(updateSQL);
+
+                // create command
+                var updateCommand = new SqlCommand(updateSQL, connection);
+
+                int rowsAffected = updateCommand.ExecuteNonQuery();
+
+                if (rowsAffected == 1)
+                {
+                    Msg(recordsObject.FullName + " was updated.");
+                    ReloadRecords();
+                }
+                else
+                {
+                    Msg(recordsObject.FullName + " was NOT updated.");
+                    ReloadRecords();
+                }
             }
             else
             {
-                // Update the selected owner's information
-                UpdateSelectedRecord();
-
-                // Refresh the records and the list view
+                Msg("Invalid Record.");
                 ReloadRecords();
-                PopulateListView();
-
-                // Display a success message
-                Msg("Owner information updated successfully.");
             }
-        }
-        private void UpdateSelectedRecord()
-        {
 
         }
+
+        // Method to handle all MessageBox's
+        public void Msg(string msg)
+        {
+            MessageBox.Show(msg, "Maintenace Records", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
+        }
+
     }
 }
